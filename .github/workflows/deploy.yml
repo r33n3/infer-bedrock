@@ -9,6 +9,15 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION:       ${{ vars.AWS_REGION       || 'us-east-1' }}
+  BEDROCK_REGION:   ${{ vars.BEDROCK_REGION   || 'us-east-1' }}
+  STACK_NAME:       ${{ vars.STACK_NAME       || 'infer-bedrock' }}
+  DEPLOY_BUCKET:    ${{ vars.DEPLOY_BUCKET    || 'infer-bedrock-deploy-111526027101' }}
+  ALLOWED_MODELS:   ${{ vars.ALLOWED_MODELS   || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
+  DEFAULT_MODEL:    ${{ vars.DEFAULT_MODEL    || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
+  MAX_TOKENS_LIMIT: ${{ vars.MAX_TOKENS_LIMIT || '2000' }}
+
 jobs:
   deploy:
     name: Deploy to AWS
@@ -22,7 +31,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
           role-session-name: infer-bedrock-deploy
 
       - name: Package Lambda zip
@@ -35,49 +44,56 @@ jobs:
       - name: Upload Lambda zip to S3
         run: |
           S3_KEY="infer-bedrock/${{ github.sha }}/lambda.zip"
-          aws s3 cp lambda.zip "s3://${{ vars.DEPLOY_BUCKET }}/${S3_KEY}"
+          aws s3 cp lambda.zip "s3://${DEPLOY_BUCKET}/${S3_KEY}"
           echo "S3_KEY=${S3_KEY}" >> "$GITHUB_ENV"
 
       - name: Deploy CloudFormation stack
         run: |
           aws cloudformation deploy \
             --template-file infra/template.yaml \
-            --stack-name "${{ vars.STACK_NAME }}" \
+            --stack-name "${STACK_NAME}" \
+            --region "${AWS_REGION}" \
             --capabilities CAPABILITY_NAMED_IAM \
             --parameter-overrides \
               ProjectName=infer-bedrock \
-              BedrockRegion="${{ vars.BEDROCK_REGION }}" \
-              AllowedModels="${{ vars.ALLOWED_MODELS }}" \
-              DefaultModel="${{ vars.DEFAULT_MODEL }}" \
-              MaxTokensLimit="${{ vars.MAX_TOKENS_LIMIT }}" \
+              BedrockRegion="${BEDROCK_REGION}" \
+              AllowedModels="${ALLOWED_MODELS}" \
+              DefaultModel="${DEFAULT_MODEL}" \
+              MaxTokensLimit="${MAX_TOKENS_LIMIT}" \
               AdapterApiKey="${{ secrets.ADAPTER_API_KEY }}" \
-              LambdaS3Bucket="${{ vars.DEPLOY_BUCKET }}" \
-              LambdaS3Key="${{ env.S3_KEY }}" \
+              LambdaS3Bucket="${DEPLOY_BUCKET}" \
+              LambdaS3Key="${S3_KEY}" \
             --no-fail-on-empty-changeset
 
       - name: Update Lambda code
         run: |
           FUNCTION_NAME=$(aws cloudformation describe-stacks \
-            --stack-name "${{ vars.STACK_NAME }}" \
+            --stack-name "${STACK_NAME}" \
+            --region "${AWS_REGION}" \
             --query "Stacks[0].Outputs[?OutputKey=='FunctionName'].OutputValue" \
             --output text)
           aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
-            --s3-bucket "${{ vars.DEPLOY_BUCKET }}" \
-            --s3-key "${{ env.S3_KEY }}" \
+            --s3-bucket "${DEPLOY_BUCKET}" \
+            --s3-key "${S3_KEY}" \
+            --region "${AWS_REGION}" \
             --publish
 
       - name: Wait for Lambda update
         run: |
           FUNCTION_NAME=$(aws cloudformation describe-stacks \
-            --stack-name "${{ vars.STACK_NAME }}" \
+            --stack-name "${STACK_NAME}" \
+            --region "${AWS_REGION}" \
             --query "Stacks[0].Outputs[?OutputKey=='FunctionName'].OutputValue" \
             --output text)
-          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME" \
+            --region "${AWS_REGION}"
 
       - name: Show stack outputs
         run: |
           aws cloudformation describe-stacks \
-            --stack-name "${{ vars.STACK_NAME }}" \
+            --stack-name "${STACK_NAME}" \
+            --region "${AWS_REGION}" \
             --query "Stacks[0].Outputs" \
             --output table
