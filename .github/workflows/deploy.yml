@@ -10,13 +10,15 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION:       ${{ vars.AWS_REGION       || 'us-east-1' }}
-  BEDROCK_REGION:   ${{ vars.BEDROCK_REGION   || 'us-east-1' }}
-  STACK_NAME:       ${{ vars.STACK_NAME       || 'infer-bedrock' }}
-  DEPLOY_BUCKET:    ${{ vars.DEPLOY_BUCKET    || 'infer-bedrock-deploy-111526027101' }}
-  ALLOWED_MODELS:   ${{ vars.ALLOWED_MODELS   || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
-  DEFAULT_MODEL:    ${{ vars.DEFAULT_MODEL    || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
-  MAX_TOKENS_LIMIT: ${{ vars.MAX_TOKENS_LIMIT || '2000' }}
+  AWS_REGION:           ${{ vars.AWS_REGION       || 'us-east-1' }}
+  BEDROCK_REGION:       ${{ vars.BEDROCK_REGION   || 'us-east-1' }}
+  STACK_NAME:           ${{ vars.STACK_NAME       || 'infer-bedrock' }}
+  DEPLOY_BUCKET:        ${{ vars.DEPLOY_BUCKET    || 'infer-bedrock-deploy-111526027101' }}
+  ALLOWED_MODELS:       ${{ vars.ALLOWED_MODELS   || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
+  DEFAULT_MODEL:        ${{ vars.DEFAULT_MODEL    || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
+  MAX_TOKENS_LIMIT:     ${{ vars.MAX_TOKENS_LIMIT || '2000' }}
+  # Accept role ARN from either Secrets or Variables
+  ROLE_TO_ASSUME:       ${{ secrets.AWS_ROLE_TO_ASSUME || vars.AWS_ROLE_TO_ASSUME }}
 
 jobs:
   deploy:
@@ -27,10 +29,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify required secrets
+        run: |
+          if [ -z "${ROLE_TO_ASSUME}" ]; then
+            echo "::error::AWS_ROLE_TO_ASSUME is empty. Set it under repo Settings > Secrets > Actions."
+            echo "::error::Value should be: arn:aws:iam::111526027101:role/infer-bedrock-github-deploy"
+            exit 1
+          fi
+          echo "AWS_ROLE_TO_ASSUME is set (${#ROLE_TO_ASSUME} chars)"
+          if [ -z "${ADAPTER_API_KEY}" ]; then
+            echo "::warning::ADAPTER_API_KEY is empty — endpoint will accept unauthenticated requests"
+          else
+            echo "ADAPTER_API_KEY is set (${#ADAPTER_API_KEY} chars)"
+          fi
+        env:
+          ADAPTER_API_KEY: ${{ secrets.ADAPTER_API_KEY }}
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: infer-bedrock-deploy
 
