@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: InferBedrock - Lightweight Bedrock inference adapter
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: infer-bedrock
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+  AllowedModels:
+    Type: String
+    Default: anthropic.claude-3-5-sonnet-20240620-v1:0
+    Description: Comma-separated list of allowed Bedrock model IDs
+  DefaultModel:
+    Type: String
+    Default: anthropic.claude-3-5-sonnet-20240620-v1:0
+  MaxTokensLimit:
+    Type: Number
+    Default: 2000
+  AdapterApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: API key required in x-api-key header. Leave empty to disable auth (local/test only).
+  LogPrompts:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  CorsEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  LambdaS3Bucket:
+    Type: String
+    Description: S3 bucket containing the Lambda deployment zip
+  LambdaS3Key:
+    Type: String
+    Description: S3 key of the Lambda deployment zip (e.g. infer-bedrock/abc123/lambda.zip)
+
+Resources:
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockConverse
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:Converse
+                # Foundation model ARNs follow arn:aws:bedrock:REGION::foundation-model/MODEL_ID.
+                # Wildcard on model ID is intentional: restricting per-model here would require
+                # maintaining a parallel ARN list. The ALLOWED_MODELS env var is the enforcement layer.
+                Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/*'
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ProjectName}-adapter'
+      RetentionInDays: 7
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: LambdaLogGroup
+    Properties:
+      FunctionName: !Sub '${ProjectName}-adapter'
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref LambdaS3Bucket
+        S3Key: !Ref LambdaS3Key
+      Environment:
+        Variables:
+          ALLOWED_MODELS: !Ref AllowedModels
+          MAX_TOKENS_LIMIT: !Ref MaxTokensLimit
+          ADAPTER_API_KEY: !Ref AdapterApiKey
+          LOG_PROMPTS: !Ref LogPrompts
+          BEDROCK_REGION: !Ref BedrockRegion
+          CORS_ENABLED: !Ref CorsEnabled
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+      ProtocolType: HTTP
+      Description: InferBedrock HTTP API
+
+  HttpApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub
+        - 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FnArn}/invocations'
+        - FnArn: !GetAtt LambdaFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /health'
+      Target: !Sub 'integrations/${HttpApiIntegration}'
+
+  ChatRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /v1/chat/completions'
+      Target: !Sub 'integrations/${HttpApiIntegration}'
+
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
+
+Outputs:
+  ApiEndpoint:
+    Description: InferBedrock API endpoint
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+    Export:
+      Name: !Sub '${ProjectName}-api-endpoint'
+  FunctionName:
+    Description: Lambda function name
+    Value: !Ref LambdaFunction
+    Export:
+      Name: !Sub '${ProjectName}-function-name'
+  LambdaRoleArn:
+    Description: Lambda execution role ARN
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-lambda-role-arn'

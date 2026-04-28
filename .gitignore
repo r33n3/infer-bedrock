@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# Lambda packaging
+lambda.zip
+packaged-template.yaml
+*.zip
+
+# AWS SAM / CDK
+.aws-sam/
+cdk.out/
+
+# env / secrets
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

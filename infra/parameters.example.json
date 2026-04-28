@@ -1,0 +1,12 @@
+[
+  { "ParameterKey": "ProjectName",    "ParameterValue": "infer-bedrock" },
+  { "ParameterKey": "BedrockRegion",  "ParameterValue": "us-east-1" },
+  { "ParameterKey": "AllowedModels",  "ParameterValue": "anthropic.claude-3-5-sonnet-20240620-v1:0" },
+  { "ParameterKey": "DefaultModel",   "ParameterValue": "anthropic.claude-3-5-sonnet-20240620-v1:0" },
+  { "ParameterKey": "MaxTokensLimit", "ParameterValue": "2000" },
+  { "ParameterKey": "AdapterApiKey",  "ParameterValue": "REPLACE_WITH_SECRET" },
+  { "ParameterKey": "LogPrompts",     "ParameterValue": "false" },
+  { "ParameterKey": "CorsEnabled",    "ParameterValue": "false" },
+  { "ParameterKey": "LambdaS3Bucket", "ParameterValue": "REPLACE_WITH_DEPLOY_BUCKET" },
+  { "ParameterKey": "LambdaS3Key",    "ParameterValue": "infer-bedrock/latest/lambda.zip" }
+]

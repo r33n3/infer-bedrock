@@ -1,0 +1,9 @@
+{
+  "model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "messages": [
+    {"role": "system", "content": "You are concise. Answer in one sentence."},
+    {"role": "user",   "content": "Say hello and tell me what you are."}
+  ],
+  "max_tokens": 200,
+  "temperature": 0.2
+}

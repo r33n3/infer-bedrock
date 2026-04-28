@@ -1,0 +1,83 @@
+name: Deploy InferBedrock
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: infer-bedrock-deploy
+
+      - name: Package Lambda zip
+        run: |
+          cd src
+          zip -j ../lambda.zip app.py
+          cd ..
+          echo "Lambda zip size: $(wc -c < lambda.zip) bytes"
+
+      - name: Upload Lambda zip to S3
+        run: |
+          S3_KEY="infer-bedrock/${{ github.sha }}/lambda.zip"
+          aws s3 cp lambda.zip "s3://${{ vars.DEPLOY_BUCKET }}/${S3_KEY}"
+          echo "S3_KEY=${S3_KEY}" >> "$GITHUB_ENV"
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/template.yaml \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              ProjectName=infer-bedrock \
+              BedrockRegion="${{ vars.BEDROCK_REGION }}" \
+              AllowedModels="${{ vars.ALLOWED_MODELS }}" \
+              DefaultModel="${{ vars.DEFAULT_MODEL }}" \
+              MaxTokensLimit="${{ vars.MAX_TOKENS_LIMIT }}" \
+              AdapterApiKey="${{ secrets.ADAPTER_API_KEY }}" \
+              LambdaS3Bucket="${{ vars.DEPLOY_BUCKET }}" \
+              LambdaS3Key="${{ env.S3_KEY }}" \
+            --no-fail-on-empty-changeset
+
+      - name: Update Lambda code
+        run: |
+          FUNCTION_NAME=$(aws cloudformation describe-stacks \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionName'].OutputValue" \
+            --output text)
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --s3-bucket "${{ vars.DEPLOY_BUCKET }}" \
+            --s3-key "${{ env.S3_KEY }}" \
+            --publish
+
+      - name: Wait for Lambda update
+        run: |
+          FUNCTION_NAME=$(aws cloudformation describe-stacks \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionName'].OutputValue" \
+            --output text)
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+
+      - name: Show stack outputs
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name "${{ vars.STACK_NAME }}" \
+            --query "Stacks[0].Outputs" \
+            --output table
