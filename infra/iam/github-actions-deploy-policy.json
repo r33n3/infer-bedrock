@@ -58,7 +58,9 @@
         "apigateway:POST",
         "apigateway:PUT",
         "apigateway:DELETE",
-        "apigateway:PATCH"
+        "apigateway:PATCH",
+        "apigateway:TagResource",
+        "apigateway:UntagResource"
       ],
       "Resource": [
         "arn:aws:apigateway:us-east-1::/apis",
