@@ -4,15 +4,29 @@
 #
 # Requirements:
 #   - InferBedrock endpoint live (INFER_BEDROCK_URL)
-#   - InferBedrock API key (INFER_BEDROCK_API_KEY)
+#   - InferBedrock API key — one of:
+#       INFER_BEDROCK_API_KEY env var set explicitly, OR
+#       AWS CLI configured with access to Secrets Manager (auto-fetches from infer-bedrock/adapter-api-key)
 #   - LiteLLM proxy running locally (LITELLM_URL, default http://localhost:4000)
 #   - LiteLLM master key (LITELLM_MASTER_KEY)
 set -euo pipefail
 
 : "${INFER_BEDROCK_URL:=https://exhot3ztm9.execute-api.us-east-1.amazonaws.com}"
-: "${INFER_BEDROCK_API_KEY:?Set INFER_BEDROCK_API_KEY to your adapter key}"
 : "${LITELLM_URL:=http://localhost:4000}"
 : "${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY to your LiteLLM master key}"
+
+# Resolve API key: explicit env var wins, otherwise pull from Secrets Manager
+if [ -z "${INFER_BEDROCK_API_KEY:-}" ]; then
+  echo "==> INFER_BEDROCK_API_KEY not set — fetching from AWS Secrets Manager..."
+  INFER_BEDROCK_API_KEY=$(aws secretsmanager get-secret-value \
+    --secret-id "infer-bedrock/adapter-api-key" \
+    --query SecretString \
+    --output text \
+    --region "${AWS_REGION:-us-east-1}")
+  echo "    Got API key from Secrets Manager (${#INFER_BEDROCK_API_KEY} chars)"
+fi
+
+: "${INFER_BEDROCK_API_KEY:?Could not obtain INFER_BEDROCK_API_KEY from env or Secrets Manager}"
 
 echo "==> Fetching available models from InferBedrock..."
 MODELS_JSON=$(curl -fsSL \

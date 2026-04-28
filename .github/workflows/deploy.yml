@@ -39,9 +39,9 @@ jobs:
           fi
           echo "AWS_ROLE_TO_ASSUME is set (${#ROLE_TO_ASSUME} chars)"
           if [ -z "${ADAPTER_API_KEY}" ]; then
-            echo "::warning::ADAPTER_API_KEY is empty — endpoint will accept unauthenticated requests"
+            echo "::warning::ADAPTER_API_KEY is not set — secret in Secrets Manager will not be updated this run"
           else
-            echo "ADAPTER_API_KEY is set (${#ADAPTER_API_KEY} chars)"
+            echo "ADAPTER_API_KEY is set (${#ADAPTER_API_KEY} chars) — will seed Secrets Manager after deploy"
           fi
         env:
           ADAPTER_API_KEY: ${{ secrets.ADAPTER_API_KEY }}
@@ -79,10 +79,19 @@ jobs:
               AllowedModels="${ALLOWED_MODELS}" \
               DefaultModel="${DEFAULT_MODEL}" \
               MaxTokensLimit="${MAX_TOKENS_LIMIT}" \
-              AdapterApiKey="${{ secrets.ADAPTER_API_KEY }}" \
               LambdaS3Bucket="${DEPLOY_BUCKET}" \
               LambdaS3Key="${S3_KEY}" \
             --no-fail-on-empty-changeset
+
+      - name: Seed API key in Secrets Manager
+        if: ${{ secrets.ADAPTER_API_KEY != '' }}
+        run: |
+          SECRET_ID="infer-bedrock/adapter-api-key"
+          aws secretsmanager put-secret-value \
+            --secret-id "${SECRET_ID}" \
+            --secret-string "${{ secrets.ADAPTER_API_KEY }}" \
+            --region "${AWS_REGION}"
+          echo "API key updated in Secrets Manager (${SECRET_ID})"
 
       - name: Update Lambda code
         run: |

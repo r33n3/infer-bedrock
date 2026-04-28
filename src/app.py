@@ -12,7 +12,8 @@ logger.setLevel(logging.INFO)
 
 ALLOWED_MODELS = [m.strip() for m in os.environ.get("ALLOWED_MODELS", "").split(",") if m.strip()]
 MAX_TOKENS_LIMIT = int(os.environ.get("MAX_TOKENS_LIMIT", "2000"))
-ADAPTER_API_KEY = os.environ.get("ADAPTER_API_KEY", "")
+ADAPTER_API_KEY_SECRET_ARN = os.environ.get("ADAPTER_API_KEY_SECRET_ARN", "")
+_ADAPTER_API_KEY_ENV = os.environ.get("ADAPTER_API_KEY", "")  # local/test fallback, read at import
 LOG_PROMPTS = os.environ.get("LOG_PROMPTS", "false").lower() == "true"
 CORS_ENABLED = os.environ.get("CORS_ENABLED", "false").lower() == "true"
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
@@ -20,6 +21,8 @@ MAX_BODY_BYTES = 64 * 1024  # 64 KB hard ceiling
 
 _bedrock = None
 _bedrock_mgmt = None
+_api_key_cache: dict = {"value": None, "fetched_at": 0.0}
+_KEY_CACHE_TTL = 300  # seconds; allows key rotation without redeployment
 
 
 def _get_bedrock():
@@ -34,6 +37,34 @@ def _get_bedrock_mgmt():
     if _bedrock_mgmt is None:
         _bedrock_mgmt = boto3.client("bedrock", region_name=BEDROCK_REGION)
     return _bedrock_mgmt
+
+
+def _get_adapter_api_key() -> str:
+    """Return the adapter API key, fetching from Secrets Manager when configured.
+
+    Falls back to ADAPTER_API_KEY env var for local/test use when no ARN is set.
+    Cached for _KEY_CACHE_TTL seconds so rotation takes effect within 5 minutes.
+    """
+    if not ADAPTER_API_KEY_SECRET_ARN:
+        return _ADAPTER_API_KEY_ENV
+
+    now = time.time()
+    if _api_key_cache["value"] is not None and (now - _api_key_cache["fetched_at"]) < _KEY_CACHE_TTL:
+        return _api_key_cache["value"]  # type: ignore[return-value]
+
+    try:
+        sm = boto3.client("secretsmanager", region_name=BEDROCK_REGION)
+        resp = sm.get_secret_value(SecretId=ADAPTER_API_KEY_SECRET_ARN)
+        key = resp.get("SecretString", "")
+        _api_key_cache["value"] = key
+        _api_key_cache["fetched_at"] = now
+        return key
+    except ClientError as exc:
+        logger.error("secretsmanager_error: %s", exc)
+        # Return stale cache rather than breaking all requests if SM is briefly unavailable
+        if _api_key_cache["value"] is not None:
+            return _api_key_cache["value"]  # type: ignore[return-value]
+        return _ADAPTER_API_KEY_ENV
 
 
 def _base_headers():
@@ -66,7 +97,8 @@ def _check_api_key(event: dict):
       x-api-key: <key>                  (curl, direct calls)
       Authorization: Bearer <key>       (LiteLLM, OpenAI SDK)
     """
-    if not ADAPTER_API_KEY:
+    required_key = _get_adapter_api_key()
+    if not required_key:
         return None
     headers = event.get("headers") or {}
 
@@ -81,7 +113,7 @@ def _check_api_key(event: dict):
         if auth.lower().startswith("bearer "):
             provided = auth[7:].strip()
 
-    if provided != ADAPTER_API_KEY:
+    if provided != required_key:
         return _error(401, "unauthorized", "Missing or invalid API key")
     return None
 

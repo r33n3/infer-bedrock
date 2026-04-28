@@ -118,6 +118,20 @@
         "s3:ListBucket"
       ],
       "Resource": "arn:aws:s3:::infer-bedrock-deploy-111526027101"
+    },
+    {
+      "Sid": "SecretsManagerApiKey",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:TagResource",
+        "secretsmanager:ListSecretVersionIds"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:111526027101:secret:infer-bedrock/*"
     }
   ]
 }
