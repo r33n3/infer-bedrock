@@ -220,8 +220,9 @@ class TestHappyPath(unittest.TestCase):
         self.assertEqual(result["object"], "chat.completion")
         self.assertEqual(result["choices"][0]["message"]["content"], "Hello, world!")
         self.assertEqual(result["choices"][0]["finish_reason"], "stop")
-        self.assertEqual(result["usage"]["input_tokens"], 10)
-        self.assertEqual(result["usage"]["output_tokens"], 5)
+        self.assertIn("created", result)
+        self.assertEqual(result["usage"]["prompt_tokens"], 10)
+        self.assertEqual(result["usage"]["completion_tokens"], 5)
         self.assertEqual(result["usage"]["total_tokens"], 15)
 
         call_kwargs = mock_client.converse.call_args.kwargs

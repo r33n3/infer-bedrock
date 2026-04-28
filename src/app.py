@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 import uuid
 
 import boto3
@@ -190,6 +191,7 @@ def _handle_chat_completions(event: dict) -> dict:
         {
             "id": f"infer-bedrock-{uuid.uuid4().hex[:12]}",
             "object": "chat.completion",
+            "created": int(time.time()),
             "model": model,
             "choices": [
                 {
@@ -199,8 +201,8 @@ def _handle_chat_completions(event: dict) -> dict:
                 }
             ],
             "usage": {
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
+                "prompt_tokens": input_tokens,
+                "completion_tokens": output_tokens,
                 "total_tokens": input_tokens + output_tokens,
             },
         }
