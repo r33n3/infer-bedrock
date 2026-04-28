@@ -84,12 +84,17 @@ jobs:
             --no-fail-on-empty-changeset
 
       - name: Seed API key in Secrets Manager
-        if: ${{ secrets.ADAPTER_API_KEY != '' }}
+        env:
+          ADAPTER_API_KEY: ${{ secrets.ADAPTER_API_KEY }}
         run: |
+          if [ -z "${ADAPTER_API_KEY}" ]; then
+            echo "ADAPTER_API_KEY secret not set — skipping Secrets Manager seed"
+            exit 0
+          fi
           SECRET_ID="infer-bedrock/adapter-api-key"
           aws secretsmanager put-secret-value \
             --secret-id "${SECRET_ID}" \
-            --secret-string "${{ secrets.ADAPTER_API_KEY }}" \
+            --secret-string "${ADAPTER_API_KEY}" \
             --region "${AWS_REGION}"
           echo "API key updated in Secrets Manager (${SECRET_ID})"
 
