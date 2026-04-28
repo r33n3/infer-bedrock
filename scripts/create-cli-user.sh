@@ -14,11 +14,21 @@ aws iam create-user --user-name "${USER_NAME}" 2>&1 || {
   echo "    User may already exist — continuing"
 }
 
-echo "==> Attaching inline policy: ${POLICY_NAME}"
-aws iam put-user-policy \
-  --user-name "${USER_NAME}" \
+echo "==> Creating managed policy: ${POLICY_NAME}"
+POLICY_ARN=$(aws iam create-policy \
   --policy-name "${POLICY_NAME}" \
-  --policy-document "file://${ROOT}/infra/iam/cli-admin-policy.json"
+  --policy-document "file://${ROOT}/infra/iam/cli-admin-policy.json" \
+  --description "InferBedrock CLI admin: deploy, bootstrap, and debug" \
+  --query "Policy.Arn" --output text 2>&1) || {
+    echo "    Policy may already exist — fetching ARN"
+    POLICY_ARN="arn:aws:iam::${ACCOUNT_ID}:policy/${POLICY_NAME}"
+  }
+echo "    Policy ARN: ${POLICY_ARN}"
+
+echo "==> Attaching managed policy to user"
+aws iam attach-user-policy \
+  --user-name "${USER_NAME}" \
+  --policy-arn "${POLICY_ARN}"
 echo "    Policy attached."
 
 echo "==> Creating access key"
