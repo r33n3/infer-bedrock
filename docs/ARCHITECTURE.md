@@ -3,7 +3,7 @@
 ## Overview
 
 ```
-Local WTK / LiteLLM / agents
+Local tooling / LiteLLM / AI agents
          |  HTTPS + x-api-key
          v
   InferBedrock API Gateway (HTTP API)
@@ -74,22 +74,6 @@ Lambda code exceeds the 4 KB inline ZipFile limit. The deployment zip is stored 
 **Model allowlist in Lambda, not IAM**
 Foundation model ARNs would require a parallel, synchronized list to scope IAM per-model. The Lambda-level `ALLOWED_MODELS` env var is the enforcement layer — IAM scopes to the `foundation-model/*` resource class.
 
-## Dark Factory / PeaRL Positioning
+## Governance Positioning
 
-InferBedrock is a **provider bridge**, not a governance layer.
-
-```
-WTK / local agent tooling
-         |
-         v
-  PeaRL / local policy gateway   <-- governance lives here
-         |
-         v
-  InferBedrock                   <-- provider bridge only
-         |
-         v
-  AWS Bedrock
-```
-
-InferBedrock enforces: valid API key, allowed model, token ceiling.
-PeaRL or a local gateway should decide which agents may call InferBedrock.
+InferBedrock is a **provider bridge**, not a governance layer. It enforces: valid API key, allowed model list, token ceiling. If you need to control which callers or agents may reach this endpoint, add a policy gateway in front of it.

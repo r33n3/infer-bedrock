@@ -5,8 +5,9 @@
 InferBedrock uses a static API key enforced inside Lambda. HTTP APIs do not support native API key/usage plans (that is a REST API feature), so enforcement happens in code.
 
 - Header: `x-api-key`
-- Configured via: `ADAPTER_API_KEY` environment variable / `AdapterApiKey` CloudFormation parameter
-- If `ADAPTER_API_KEY` is empty, all requests are accepted without a key. **Never deploy without a key in production.**
+- Configured via: AWS Secrets Manager secret `infer-bedrock/adapter-api-key` (recommended) or `ADAPTER_API_KEY` environment variable for local use
+- The Lambda caches the key from Secrets Manager for 5 minutes, so rotations take effect without redeployment
+- If no key is configured, all requests are accepted without authentication. **Never deploy without a key in production.**
 
 ## Model Allowlist
 
@@ -43,7 +44,7 @@ Requests are hard-capped at 64 KB in Lambda code regardless of API Gateway limit
 GitHub Actions deploys using short-lived OIDC credentials. No long-lived AWS keys are stored in GitHub.
 
 The IAM role trusted by GitHub Actions is scoped to:
-- Repository: `r33n3/infer-bedrock`
+- Repository: `YOUR_ORG/YOUR_REPO`
 - Branch: `refs/heads/main`
 
 Pushes from other branches or forks cannot assume the deploy role.

@@ -11,9 +11,11 @@
 #   - LiteLLM master key (LITELLM_MASTER_KEY)
 set -euo pipefail
 
-: "${INFER_BEDROCK_URL:=https://exhot3ztm9.execute-api.us-east-1.amazonaws.com}"
-: "${LITELLM_URL:=http://localhost:4000}"
+: "${INFER_BEDROCK_URL:?Set INFER_BEDROCK_URL to your InferBedrock API Gateway endpoint (e.g. https://abc123.execute-api.us-east-1.amazonaws.com)}"
+export INFER_BEDROCK_URL
+export LITELLM_URL="${LITELLM_URL:-http://localhost:4000}"
 : "${LITELLM_MASTER_KEY:?Set LITELLM_MASTER_KEY to your LiteLLM master key}"
+export LITELLM_MASTER_KEY
 
 # Resolve API key: explicit env var wins, otherwise pull from Secrets Manager
 if [ -z "${INFER_BEDROCK_API_KEY:-}" ]; then
@@ -27,6 +29,7 @@ if [ -z "${INFER_BEDROCK_API_KEY:-}" ]; then
 fi
 
 : "${INFER_BEDROCK_API_KEY:?Could not obtain INFER_BEDROCK_API_KEY from env or Secrets Manager}"
+export INFER_BEDROCK_API_KEY
 
 echo "==> Fetching available models from InferBedrock..."
 MODELS_JSON=$(curl -fsSL \
@@ -42,10 +45,10 @@ echo "==> Registering models in LiteLLM at ${LITELLM_URL}..."
 ADDED=0
 FAILED=0
 
-echo "${MODELS_JSON}" | python3 - <<'PYEOF'
+MODELS_JSON="${MODELS_JSON}" python3 <<'PYEOF'
 import sys, json, os, urllib.request, urllib.error
 
-data = json.load(sys.stdin)
+data = json.loads(os.environ["MODELS_JSON"])
 litellm_url = os.environ["LITELLM_URL"].rstrip("/")
 master_key = os.environ["LITELLM_MASTER_KEY"]
 infer_url = os.environ["INFER_BEDROCK_URL"]

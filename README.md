@@ -7,7 +7,7 @@ Lightweight AWS-hosted Bedrock inference adapter. Exposes a narrow HTTPS endpoin
 InferBedrock is a **provider bridge**: it accepts OpenAI-compatible chat requests over HTTPS and forwards them to Amazon Bedrock using Lambda's IAM execution role. Your local tools never touch AWS credentials.
 
 ```
-Local WTK / LiteLLM / agents
+Local tooling / LiteLLM / AI agents
          |  HTTPS + x-api-key
          v
   InferBedrock (API Gateway HTTP API)
@@ -21,7 +21,7 @@ Local WTK / LiteLLM / agents
 
 ## What This Is Not
 
-- Not a governance layer. Use PeaRL or a local policy gateway to control which agents may call this endpoint.
+- Not a governance layer. Add a policy gateway in front of it if you need to control which callers may reach this endpoint.
 - Not a full OpenAI proxy. The response shape is OpenAI-compatible but only covers the fields InferBedrock maps from Bedrock.
 - Not LiteLLM, not ECS, not a VPC deployment. It is intentionally minimal.
 
@@ -61,7 +61,7 @@ Create an IAM role with this trust policy (replace `ACCOUNT_ID`):
         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
       },
       "StringLike": {
-        "token.actions.githubusercontent.com:sub": "repo:r33n3/infer-bedrock:ref:refs/heads/main"
+        "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main"
       }
     }
   }]
@@ -237,7 +237,7 @@ model_list:
       api_key: your-adapter-api-key
 ```
 
-InferBedrock does not use the `api_key` for AWS auth — it is the adapter key passed in `x-api-key`. LiteLLM sends it as `Authorization: Bearer`, which InferBedrock does not check. Pass the key in the request headers explicitly if needed, or set `ADAPTER_API_KEY` to empty for unauthenticated local use (not recommended for production).
+InferBedrock does not use the `api_key` for AWS auth — it is the adapter key for InferBedrock itself. LiteLLM sends it as `Authorization: Bearer`, which InferBedrock accepts (it checks both `x-api-key` and `Authorization: Bearer`).
 
 For direct header control:
 
@@ -281,7 +281,7 @@ There is no always-on compute cost. You pay per request.
 
 **502 bedrock_access** — Lambda cannot call Bedrock. Check: (1) model access is enabled in the Bedrock console, (2) `BEDROCK_REGION` matches the region where you enabled model access, (3) the Lambda IAM role has `bedrock:Converse` on `foundation-model/*`.
 
-**GitHub Actions fails: "Could not assume role"** — The OIDC provider is missing, or the trust policy does not match the repo/branch. Verify the `sub` condition matches `repo:r33n3/infer-bedrock:ref:refs/heads/main`.
+**GitHub Actions fails: "Could not assume role"** — The OIDC provider is missing, or the trust policy does not match the repo/branch. Verify the `sub` condition matches `repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main`.
 
 **CloudFormation fails: "already exists"** — A stack named `infer-bedrock` exists in a bad state. Check the CloudFormation console for the failure reason and delete the stack before redeploying.
 

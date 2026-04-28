@@ -13,7 +13,7 @@ env:
   AWS_REGION:           ${{ vars.AWS_REGION       || 'us-east-1' }}
   BEDROCK_REGION:       ${{ vars.BEDROCK_REGION   || 'us-east-1' }}
   STACK_NAME:           ${{ vars.STACK_NAME       || 'infer-bedrock' }}
-  DEPLOY_BUCKET:        ${{ vars.DEPLOY_BUCKET    || 'infer-bedrock-deploy-111526027101' }}
+  DEPLOY_BUCKET:        ${{ vars.DEPLOY_BUCKET }}
   ALLOWED_MODELS:       ${{ vars.ALLOWED_MODELS   || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
   DEFAULT_MODEL:        ${{ vars.DEFAULT_MODEL    || 'anthropic.claude-3-5-sonnet-20240620-v1:0' }}
   MAX_TOKENS_LIMIT:     ${{ vars.MAX_TOKENS_LIMIT || '2000' }}
@@ -34,7 +34,7 @@ jobs:
         run: |
           if [ -z "${ROLE_TO_ASSUME}" ]; then
             echo "::error::AWS_ROLE_TO_ASSUME is empty. Set it under repo Settings > Secrets > Actions."
-            echo "::error::Value should be: arn:aws:iam::111526027101:role/infer-bedrock-github-deploy"
+            echo "::error::Value should be the ARN of your GitHub Actions deploy role (see infra/iam/github-actions-trust-policy.json)"
             exit 1
           fi
           echo "AWS_ROLE_TO_ASSUME is set (${#ROLE_TO_ASSUME} chars)"

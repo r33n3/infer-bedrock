@@ -4,8 +4,8 @@
 # Prerequisites: AWS CLI configured (aws configure or env vars), jq installed.
 set -euo pipefail
 
-ACCOUNT_ID="111526027101"
-REGION="us-east-1"
+ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
+REGION="${AWS_REGION:-us-east-1}"
 ROLE_NAME="infer-bedrock-github-deploy"
 DEPLOY_BUCKET="infer-bedrock-deploy-${ACCOUNT_ID}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -17,8 +17,8 @@
         "cloudformation:DeleteChangeSet"
       ],
       "Resource": [
-        "arn:aws:cloudformation:us-east-1:111526027101:stack/infer-bedrock/*",
-        "arn:aws:cloudformation:us-east-1:111526027101:stack/infer-bedrock"
+        "arn:aws:cloudformation:us-east-1:YOUR_ACCOUNT_ID:stack/infer-bedrock/*",
+        "arn:aws:cloudformation:us-east-1:YOUR_ACCOUNT_ID:stack/infer-bedrock"
       ]
     },
     {
@@ -48,7 +48,7 @@
         "lambda:TagResource",
         "lambda:UntagResource"
       ],
-      "Resource": "arn:aws:lambda:us-east-1:111526027101:function:infer-bedrock-*"
+      "Resource": "arn:aws:lambda:us-east-1:YOUR_ACCOUNT_ID:function:infer-bedrock-*"
     },
     {
       "Sid": "ApiGatewayManage",
@@ -85,7 +85,7 @@
         "iam:TagRole",
         "iam:UntagRole"
       ],
-      "Resource": "arn:aws:iam::111526027101:role/infer-bedrock-*"
+      "Resource": "arn:aws:iam::YOUR_ACCOUNT_ID:role/infer-bedrock-*"
     },
     {
       "Sid": "CloudWatchLogs",
@@ -99,7 +99,7 @@
         "logs:TagLogGroup",
         "logs:UntagLogGroup"
       ],
-      "Resource": "arn:aws:logs:us-east-1:111526027101:log-group:/aws/lambda/infer-bedrock-*"
+      "Resource": "arn:aws:logs:us-east-1:YOUR_ACCOUNT_ID:log-group:/aws/lambda/infer-bedrock-*"
     },
     {
       "Sid": "S3DeployArtifacts",
@@ -108,7 +108,7 @@
         "s3:PutObject",
         "s3:GetObject"
       ],
-      "Resource": "arn:aws:s3:::infer-bedrock-deploy-111526027101/infer-bedrock/*"
+      "Resource": "arn:aws:s3:::infer-bedrock-deploy-YOUR_ACCOUNT_ID/infer-bedrock/*"
     },
     {
       "Sid": "S3DeployBucket",
@@ -117,7 +117,7 @@
         "s3:GetBucketLocation",
         "s3:ListBucket"
       ],
-      "Resource": "arn:aws:s3:::infer-bedrock-deploy-111526027101"
+      "Resource": "arn:aws:s3:::infer-bedrock-deploy-YOUR_ACCOUNT_ID"
     },
     {
       "Sid": "SecretsManagerApiKey",
@@ -131,7 +131,7 @@
         "secretsmanager:TagResource",
         "secretsmanager:ListSecretVersionIds"
       ],
-      "Resource": "arn:aws:secretsmanager:us-east-1:111526027101:secret:infer-bedrock/*"
+      "Resource": "arn:aws:secretsmanager:us-east-1:YOUR_ACCOUNT_ID:secret:infer-bedrock/*"
     }
   ]
 }

@@ -3,7 +3,7 @@
 # Run this once with root or AdministratorAccess credentials.
 set -euo pipefail
 
-ACCOUNT_ID="111526027101"
+ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
 USER_NAME="infer-bedrock-cli-admin"
 POLICY_NAME="InferBedrockCliAdmin"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

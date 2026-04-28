@@ -4,7 +4,7 @@
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::111526027101:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -13,8 +13,8 @@
         },
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
-            "repo:r33n3/infer-bedrock:ref:refs/heads/main",
-            "repo:r33n3/infer-bedrock:environment:InferBedrock"
+            "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/main",
+            "repo:YOUR_ORG/YOUR_REPO:environment:InferBedrock"
           ]
         }
       }
