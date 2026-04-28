@@ -1,5 +1,7 @@
 # InferBedrock
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 Lightweight AWS-hosted Bedrock inference adapter. Exposes a narrow HTTPS endpoint for local AI tooling without requiring AWS credentials on the client.
 
 ## What This Is
@@ -296,3 +298,7 @@ See [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## License
+
+[MIT](LICENSE)
