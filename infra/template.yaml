@@ -66,6 +66,11 @@ Resources:
                 # Wildcard on model ID is intentional: restricting per-model here would require
                 # maintaining a parallel ARN list. The ALLOWED_MODELS env var is the enforcement layer.
                 Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/*'
+              - Effect: Allow
+                Action:
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                Resource: '*'
 
   LambdaLogGroup:
     Type: AWS::Logs::LogGroup
@@ -117,6 +122,13 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       RouteKey: 'GET /health'
+      Target: !Sub 'integrations/${HttpApiIntegration}'
+
+  ModelsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /v1/models'
       Target: !Sub 'integrations/${HttpApiIntegration}'
 
   ChatRoute:

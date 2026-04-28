@@ -19,6 +19,7 @@ BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
 MAX_BODY_BYTES = 64 * 1024  # 64 KB hard ceiling
 
 _bedrock = None
+_bedrock_mgmt = None
 
 
 def _get_bedrock():
@@ -26,6 +27,13 @@ def _get_bedrock():
     if _bedrock is None:
         _bedrock = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
     return _bedrock
+
+
+def _get_bedrock_mgmt():
+    global _bedrock_mgmt
+    if _bedrock_mgmt is None:
+        _bedrock_mgmt = boto3.client("bedrock", region_name=BEDROCK_REGION)
+    return _bedrock_mgmt
 
 
 def _base_headers():
@@ -52,13 +60,29 @@ def _ok(body: dict) -> dict:
 
 
 def _check_api_key(event: dict):
-    """Return an error response if the API key is wrong, else None."""
+    """Return an error response if the API key is wrong, else None.
+
+    Accepts the key from either:
+      x-api-key: <key>                  (curl, direct calls)
+      Authorization: Bearer <key>       (LiteLLM, OpenAI SDK)
+    """
     if not ADAPTER_API_KEY:
         return None
     headers = event.get("headers") or {}
-    provided = headers.get("x-api-key") or headers.get("X-Api-Key") or ""
+
+    provided = (
+        headers.get("x-api-key")
+        or headers.get("X-Api-Key")
+        or ""
+    )
+
+    if not provided:
+        auth = headers.get("authorization") or headers.get("Authorization") or ""
+        if auth.lower().startswith("bearer "):
+            provided = auth[7:].strip()
+
     if provided != ADAPTER_API_KEY:
-        return _error(401, "unauthorized", "Missing or invalid x-api-key header")
+        return _error(401, "unauthorized", "Missing or invalid API key")
     return None
 
 
@@ -209,6 +233,44 @@ def _handle_chat_completions(event: dict) -> dict:
     )
 
 
+def _handle_models(event: dict) -> dict:
+    """GET /v1/models — returns all Bedrock foundation models in OpenAI format."""
+    auth_err = _check_api_key(event)
+    if auth_err:
+        return auth_err
+
+    try:
+        resp = _get_bedrock_mgmt().list_foundation_models(
+            byOutputModality="TEXT",
+        )
+    except ClientError as exc:
+        code = exc.response["Error"]["Code"]
+        msg = exc.response["Error"]["Message"]
+        logger.error("list_foundation_models error code=%s message=%s", code, msg)
+        return _error(502, "bedrock_error", f"Could not list models: {code}")
+
+    models = []
+    for m in resp.get("modelSummaries", []):
+        model_id = m.get("modelId", "")
+        if not model_id:
+            continue
+        # Only include models that support on-demand inference (no provisioned throughput required)
+        inference_types = m.get("inferenceTypesSupported", [])
+        if "ON_DEMAND" not in inference_types:
+            continue
+        models.append({
+            "id": model_id,
+            "object": "model",
+            "created": 0,
+            "owned_by": m.get("providerName", "bedrock"),
+            "display_name": m.get("modelName", model_id),
+            "input_modalities": m.get("inputModalities", []),
+            "output_modalities": m.get("outputModalities", []),
+        })
+
+    return _ok({"object": "list", "data": models})
+
+
 def lambda_handler(event: dict, _context) -> dict:
     http = event.get("requestContext", {}).get("http", {})
     method = http.get("method", "")
@@ -216,6 +278,9 @@ def lambda_handler(event: dict, _context) -> dict:
 
     if path == "/health" and method == "GET":
         return _handle_health(event)
+
+    if path == "/v1/models" and method == "GET":
+        return _handle_models(event)
 
     if path == "/v1/chat/completions" and method == "POST":
         return _handle_chat_completions(event)

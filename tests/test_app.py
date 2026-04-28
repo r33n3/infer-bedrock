@@ -77,6 +77,28 @@ class TestApiKeyAuth(unittest.TestCase):
         body = json.loads(resp["body"])
         self.assertEqual(body["error"]["code"], "unauthorized")
 
+    def test_bearer_token_accepted(self):
+        app, mock_boto3 = _load_app()
+        mock_client = MagicMock()
+        mock_boto3.client.return_value = mock_client
+        mock_client.converse.return_value = {
+            "output": {"message": {"content": [{"text": "hi"}]}},
+            "stopReason": "end_turn",
+            "usage": {"inputTokens": 5, "outputTokens": 2},
+        }
+        event = {
+            "requestContext": {"http": {"method": "POST"}},
+            "rawPath": "/v1/chat/completions",
+            "headers": {"authorization": "Bearer test-key"},
+            "body": json.dumps({
+                "model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 100,
+            }),
+        }
+        resp = app.lambda_handler(event, None)
+        self.assertEqual(resp["statusCode"], 200)
+
     def test_wrong_api_key_returns_401(self):
         app, _ = _load_app()
         event = _make_event("POST", "/v1/chat/completions", body={}, api_key="wrong")
