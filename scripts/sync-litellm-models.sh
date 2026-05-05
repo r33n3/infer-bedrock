@@ -68,7 +68,7 @@ for model in data["data"]:
         "model_name": litellm_model_name,
         "litellm_params": {
             "model": f"openai/{model_id}",
-            "api_base": infer_url,
+            "api_base": f"{infer_url}/v1",
             "api_key": api_key,
         },
         "model_info": {

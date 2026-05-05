@@ -235,11 +235,13 @@ model_list:
   - model_name: infer-bedrock/claude-3-5-sonnet
     litellm_params:
       model: openai/anthropic.claude-3-5-sonnet-20240620-v1:0
-      api_base: https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com
+      api_base: https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/v1
       api_key: your-adapter-api-key
 ```
 
 InferBedrock does not use the `api_key` for AWS auth — it is the adapter key for InferBedrock itself. LiteLLM sends it as `Authorization: Bearer`, which InferBedrock accepts (it checks both `x-api-key` and `Authorization: Bearer`).
+
+> **`ALLOWED_MODELS` and LiteLLM:** The Lambda's `ALLOWED_MODELS` env var must include every model ID you register in LiteLLM, or those calls will return `400 disallowed_model`. If LiteLLM's virtual keys are your enforcement layer, set `ALLOWED_MODELS` to an empty string on the Lambda — the check is skipped when the value is empty and all ON_DEMAND Bedrock models are reachable.
 
 For direct header control:
 
@@ -247,7 +249,7 @@ For direct header control:
 import openai
 
 client = openai.OpenAI(
-    base_url="https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com",
+    base_url="https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/v1",
     api_key="unused",
     default_headers={"x-api-key": "your-adapter-api-key"},
 )
